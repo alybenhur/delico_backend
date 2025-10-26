@@ -66,7 +66,7 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   
   console.log(`
     🚀 Aplicación corriendo en: http://localhost:${port}/${apiPrefix}
