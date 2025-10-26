@@ -10,7 +10,7 @@ async function bootstrap() {
   
   // Obtener ConfigService
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('port') || 3000;
+  const port = process.env.PORT || 3000;
   const apiPrefix = configService.get<string>('apiPrefix') || 'api/v1';
 
   // Configurar prefijo global de API
