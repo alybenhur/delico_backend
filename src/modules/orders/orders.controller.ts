@@ -40,6 +40,7 @@ import {
   MarketplaceCalculationResponseDto,
 } from './dto/marketplace-order.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { OrderPaginationDto } from './dto/order-pagination.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth('JWT-auth')
@@ -102,9 +103,10 @@ export class OrdersController {
   @ApiResponse({ status: 403, description: 'No tienes permisos' })
   getBusinessOrders(
     @Param('businessId') businessId: string,
-    @Query() paginationDto: PaginationDto,
-    @Query('status') status?: OrderStatus,
+     @Query() queryDto: OrderPaginationDto,
+  
   ) {
+     const { status, ...paginationDto } = queryDto;
     return this.ordersService.getBusinessOrders(businessId, paginationDto, status);
   }
 
