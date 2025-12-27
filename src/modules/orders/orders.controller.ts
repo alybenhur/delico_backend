@@ -33,12 +33,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole, OrderStatus } from '../../common/enums/common.enums';
-import {
+/* import {
   CreateMarketplaceOrderDto,
   CalculateMarketplaceOrderDto,
   OrderGroupResponseDto,
   MarketplaceCalculationResponseDto,
-} from './dto/marketplace-order.dto';
+} from './dto/marketplace-order.dto';*/
 import { Public } from '../auth/decorators/public.decorator';
 import { OrderPaginationDto } from './dto/order-pagination.dto';
 
@@ -213,7 +213,7 @@ export class OrdersController {
   }
 
   // Agregar estos endpoints en la clase OrdersController:
-@Public()
+/* @Public()
 @Post('marketplace/calculate')
 @ApiOperation({ summary: 'Calcular orden de marketplace (cotización)' })
 @ApiResponse({ status: 200, type: MarketplaceCalculationResponseDto })
@@ -222,9 +222,9 @@ async calculateMarketplaceOrder(
 ) {
   console.log(calculateDto)
   return this.ordersService.calculateMarketplaceOrder(calculateDto);
-}
+} */
 
-
+/*
 @Post('marketplace')
 @ApiOperation({ summary: 'Crear orden de marketplace (múltiples negocios)' })
 @ApiResponse({ status: 201 })
@@ -240,8 +240,9 @@ async createMarketplaceOrder(
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('📤 Authorization Header:', authHeader);
     return this.ordersService.createMarketplaceOrder(createDto, clientId);
-}
+}*/
 
+/*
 @Get('marketplace/groups')
 @ApiOperation({ summary: 'Obtener grupos de órdenes del cliente' })
 @ApiResponse({ status: 200 })
@@ -265,5 +266,5 @@ async getClientOrderGroups(
 @ApiResponse({ status: 200, type: OrderGroupResponseDto })
 async getOrderGroup(@Param('id') id: string) {
   return this.ordersService.findOrderGroup(id);
-}
+}*/
 }

@@ -32,12 +32,8 @@ import {
   ProductStatus,
   IngredientStatus,
 } from '../../common/enums/common.enums';
-import {
-  CreateMarketplaceOrderDto,
-  CalculateMarketplaceOrderDto,
-  MarketplaceCalculationResponseDto,
-} from './dto/marketplace-order.dto';
-import { OrderGroup } from './schemas/order-group.schema';
+
+
 
 @Injectable()
 export class OrdersService {
@@ -49,7 +45,7 @@ export class OrdersService {
     private readonly ingredientModel: Model<Ingredient>,
     @InjectModel(Promotion.name)
     private readonly promotionModel: Model<Promotion>,
-     @InjectModel(OrderGroup.name) private readonly orderGroupModel: Model<OrderGroup>,
+    
   ) {}
 
   async create(createOrderDto: CreateOrderDto, clientId: string): Promise<Order> {
@@ -58,6 +54,36 @@ export class OrdersService {
     if (!business) {
       throw new NotFoundException('Negocio no encontrado');
     }
+
+      const productIds = createOrderDto.items.map(item => item.productId);
+      const products = await this.productModel.find({ 
+        _id: { $in: productIds } 
+      });
+
+      // Validar que todos los productos existen
+      if (products.length !== productIds.length) {
+        throw new BadRequestException('Algunos productos no fueron encontrados');
+      }
+
+      // Validar que todos pertenecen al mismo negocio
+      const businessesFound = new Set(
+        products.map(p => p.business.toString())
+      );
+
+      if (businessesFound.size > 1) {
+        throw new BadRequestException(
+          'No se pueden mezclar productos de diferentes negocios en una misma orden. ' +
+          'Por favor, crea órdenes separadas para cada negocio.'
+        );
+      }
+
+      // Validar que el negocio especificado coincide con los productos
+      if (!businessesFound.has(createOrderDto.business)) {
+        throw new BadRequestException(
+          'Los productos no pertenecen al negocio especificado'
+        );
+      }
+
 
     // 2. Calcular totales y validar items
     const calculation = await this.calculateOrder({
@@ -676,7 +702,7 @@ export class OrdersService {
   // ==================== MÉTODOS MARKETPLACE ====================
 
 // ==================== MÉTODOS MARKETPLACE ====================
-
+/*
 async calculateMarketplaceOrder(
   dto: CalculateMarketplaceOrderDto,
 ): Promise<MarketplaceCalculationResponseDto> {
@@ -757,8 +783,8 @@ async calculateMarketplaceOrder(
     isValid: warnings.length === 0,
     warnings: warnings.length > 0 ? warnings : undefined,
   };
-}
-
+}*/
+/*
 async createMarketplaceOrder(
   dto: CreateMarketplaceOrderDto,
   clientId: string,
@@ -855,7 +881,8 @@ async createMarketplaceOrder(
   await orderGroup.save();
 
   return { orderGroup, orders: createdOrders };
-}
+}*/
+/*
 
 async findOrderGroup(id: string): Promise<OrderGroup> {
   if (!Types.ObjectId.isValid(id)) {
@@ -878,8 +905,9 @@ async findOrderGroup(id: string): Promise<OrderGroup> {
   }
 
   return orderGroup;
-}
+}*/
 
+/*
 async getClientOrderGroups(
   clientId: string,
   paginationDto: PaginationDto,
@@ -926,13 +954,14 @@ async getClientOrderGroups(
       hasPrevPage: page > 1,
     },
   };
-}
+}*/
 
+/*
 private async generateGroupNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const count = await this.orderGroupModel.countDocuments();
   const groupNum = (count + 1).toString().padStart(6, '0');
   return `GRP-${year}-${groupNum}`;
-}
+}*/
   // Continuará en la parte 2...
 }
