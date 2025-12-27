@@ -35,7 +35,7 @@ export class UsersController {
   // ==================== ENDPOINTS PARA ADMIN ====================
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.BUSINESS)
   @ApiOperation({ summary: 'Crear nuevo usuario (solo ADMIN)' })
   @ApiResponse({
     status: 201,
