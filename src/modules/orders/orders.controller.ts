@@ -110,6 +110,7 @@ export class OrdersController {
     return this.ordersService.getBusinessOrders(businessId, paginationDto, status);
   }
 
+  @Public()
   @Get('delivery/available')
   @Roles(UserRole.DELIVERY)
   @ApiOperation({ summary: 'Pedidos disponibles para tomar (DELIVERY)' })
@@ -212,6 +213,42 @@ export class OrdersController {
     return this.ordersService.rateOrder(id, rateOrderDto, userId);
   }
 
+
+// Agregar este endpoint a orders.controller.ts
+
+/**
+ * Asignar delivery automáticamente (auto-asignación)
+ * El delivery se asigna a sí mismo a la orden
+ */
+@Patch(':id/assign-delivery')
+@Roles(UserRole.DELIVERY)
+@ApiOperation({ 
+  summary: 'Auto-asignar orden al delivery autenticado',
+  description: 'Permite que un delivery acepte una orden disponible y se la asigne automáticamente' 
+})
+@ApiResponse({ 
+  status: 200, 
+  description: 'Orden asignada exitosamente',
+  type: OrderResponseDto 
+})
+@ApiResponse({ 
+  status: 400, 
+  description: 'La orden no está en estado READY o ya tiene delivery asignado' 
+})
+@ApiResponse({ 
+  status: 403, 
+  description: 'Solo los deliveries pueden auto-asignarse órdenes' 
+})
+@ApiResponse({ 
+  status: 404, 
+  description: 'Orden no encontrada' 
+})
+async assignDeliveryToOrder(
+  @Param('id') orderId: string,
+  @CurrentUser('userId') deliveryUserId: string,
+) {
+  return this.ordersService.assignDeliveryToOrder(orderId, deliveryUserId);
+}
   // Agregar estos endpoints en la clase OrdersController:
 /* @Public()
 @Post('marketplace/calculate')

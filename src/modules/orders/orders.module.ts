@@ -8,6 +8,7 @@ import { ProductsModule } from '../products/products.module';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { IngredientsModule } from '../ingredients/ingredients.module';
 import { PromotionsModule } from '../promotions/promotions.module';
+import { UsersModule } from '../users/users.module';
 // import { OrderGroup, OrderGroupSchema } from './schemas/order-group.schema';
  //{ name: OrderGroup.name, schema: OrderGroupSchema },
 @Module({
@@ -19,6 +20,7 @@ import { PromotionsModule } from '../promotions/promotions.module';
     BusinessesModule,
     IngredientsModule,
     PromotionsModule,
+    UsersModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

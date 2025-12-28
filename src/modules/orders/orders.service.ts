@@ -12,6 +12,7 @@ import { Product } from '../products/schemas/product.schema';
 import { Business } from '../businesses/schemas/business.schema';
 import { Ingredient } from '../ingredients/schemas/ingredient.schema';
 import { Promotion } from '../promotions/schemas/promotion.schema';
+import { User } from '../users/schemas/user.schema';
 import {
   CreateOrderDto,
   CalculateOrderDto,
@@ -41,10 +42,12 @@ export class OrdersService {
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
     @InjectModel(Business.name) private readonly businessModel: Model<Business>,
+    
     @InjectModel(Ingredient.name)
     private readonly ingredientModel: Model<Ingredient>,
     @InjectModel(Promotion.name)
     private readonly promotionModel: Model<Promotion>,
+     @InjectModel(User.name) private readonly userModel: Model<User>,
     
   ) {}
 
@@ -491,29 +494,36 @@ export class OrdersService {
     return order.save();
   }
 
-  private validateStatusTransition(
-    currentStatus: OrderStatus,
-    newStatus: OrderStatus,
-  ): void {
-    const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-      [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
-      [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
-      [OrderStatus.READY]: [OrderStatus.PICKUP],
-      [OrderStatus.PICKUP]: [OrderStatus.IN_TRANSIT],
-      [OrderStatus.IN_TRANSIT]: [OrderStatus.DELIVERED],
-      [OrderStatus.DELIVERED]: [],
-      [OrderStatus.CANCELLED]: [],
-    };
+ private validateStatusTransition(
+  currentStatus: OrderStatus,
+  newStatus: OrderStatus,
+): void {
+  const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+    [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+    [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
+    [OrderStatus.READY]: [
+      OrderStatus.ON_DELIVERY,  // ✅ AGREGADO
+      OrderStatus.CANCELLED,
+    ],
+    [OrderStatus.ON_DELIVERY]: [  // ✅ AGREGADO
+      OrderStatus.PICKUP,
+      OrderStatus.CANCELLED,
+    ],
+    [OrderStatus.PICKUP]: [OrderStatus.IN_TRANSIT],
+    [OrderStatus.IN_TRANSIT]: [OrderStatus.DELIVERED],
+    [OrderStatus.DELIVERED]: [],
+    [OrderStatus.CANCELLED]: [],
+  };
 
-    const allowedTransitions = validTransitions[currentStatus] || [];
+  const allowedTransitions = validTransitions[currentStatus] || [];
 
-    if (!allowedTransitions.includes(newStatus)) {
-      throw new BadRequestException(
-        `No se puede cambiar de ${currentStatus} a ${newStatus}`,
-      );
-    }
+  if (!allowedTransitions.includes(newStatus)) {
+    throw new BadRequestException(
+      `No se puede cambiar de ${currentStatus} a ${newStatus}`,
+    );
   }
+}
 
   async assignDelivery(
     id: string,
@@ -699,6 +709,100 @@ export class OrdersService {
       },
     };
   }
+
+  // Agregar este método a orders.service.ts
+
+/**
+ * Asignar delivery automáticamente (llamado desde la app del delivery)
+ * El delivery se auto-asigna a la orden
+ */
+async assignDeliveryToOrder(
+  orderId: string,
+  deliveryUserId: string,
+): Promise<Order> {
+  // Validar que el usuario sea un delivery válido
+  const deliveryUser = await this.userModel.findById(deliveryUserId);
+  
+  if (!deliveryUser) {
+    throw new NotFoundException('Delivery no encontrado');
+  }
+  
+  if (deliveryUser.role !== 'DELIVERY') {
+    throw new ForbiddenException('Solo los deliveries pueden aceptar órdenes');
+  }
+  
+  // Verificar que el delivery puede tomar órdenes
+  if (!deliveryUser.deliveryInfo?.isOnline) {
+    throw new BadRequestException('Debes estar en línea para aceptar órdenes');
+  }
+  
+  if (!deliveryUser.deliveryInfo?.isAvailable) {
+    throw new BadRequestException('Debes estar disponible para aceptar órdenes');
+  }
+  
+  const status = deliveryUser.deliveryInfo?.status;
+  if (status !== 'ACTIVE' && status !== 'IDLE') {
+    throw new BadRequestException('No puedes aceptar órdenes en tu estado actual');
+  }
+  
+  // Buscar la orden
+  const order = await this.orderModel.findById(orderId);
+  
+  if (!order) {
+    throw new NotFoundException('Orden no encontrada');
+  }
+  
+  // Verificar que la orden esté en estado READY
+  if (order.status !== OrderStatus.READY) {
+    throw new BadRequestException(
+      `La orden debe estar en estado READY. Estado actual: ${order.status}`,
+    );
+  }
+  
+  // Verificar que no tenga delivery asignado
+  if (order.delivery) {  // ✅ CORREGIDO: "delivery" no "deliveryUser"
+    throw new BadRequestException('La orden ya tiene un delivery asignado');
+  }
+  
+  // Asignar el delivery a la orden
+  order.delivery = new Types.ObjectId(deliveryUserId);  // ✅ CORREGIDO
+  order.status = OrderStatus.ON_DELIVERY;
+  
+  // Agregar al historial de estados
+  order.statusHistory.push({
+    status: OrderStatus.ON_DELIVERY,
+    timestamp: new Date(),
+    updatedBy: new Types.ObjectId(deliveryUserId),
+    note: 'Delivery asignado y en camino a recoger',
+  });
+  
+  // Establecer tiempo de recogida
+  order.pickedUpAt = new Date();
+  
+  // Guardar la orden
+  await order.save();
+  
+  // Actualizar las estadísticas del delivery
+  await this.userModel.findByIdAndUpdate(deliveryUserId, {
+    $inc: {
+      'deliveryInfo.currentActiveOrders': 1,
+    },
+  });
+  
+  // Retornar la orden con populate
+   const populatedOrder = await this.orderModel
+    .findById(orderId)
+    .populate('client', 'firstName lastName email phone')
+    .populate('business', 'name address logo phone')
+    .populate('delivery', 'firstName lastName phone')
+    .exec();
+  
+  if (!populatedOrder) {
+    throw new NotFoundException('Error al recuperar la orden actualizada');
+  }
+  
+  return populatedOrder; 
+}
   // ==================== MÉTODOS MARKETPLACE ====================
 
 // ==================== MÉTODOS MARKETPLACE ====================
