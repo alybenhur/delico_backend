@@ -79,7 +79,7 @@ export class OrdersController {
   }
 
   @Get('my-orders')
-  @Roles(UserRole.CLIENT)
+  @Roles(UserRole.CLIENT,UserRole.DELIVERY)
   @ApiOperation({ summary: 'Mis pedidos (CLIENT)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
