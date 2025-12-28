@@ -180,4 +180,185 @@ export class UsersService {
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
   }
+
+ // ==================== AGREGAR ESTOS MÉTODOS AL FINAL DE users.service.ts ====================
+// Justo antes del último }
+
+  // ==================== HELPER PRIVADO ====================
+
+  private initializeDeliveryInfo() {
+    return {
+      isAvailable: true, // ✅ Default según schema línea 13
+      isOnline: false,   // ✅ Default según schema línea 50
+      status: 'ACTIVE',  // ✅ Default según schema línea 87
+      rating: 0,
+      totalDeliveries: 0,
+      completedDeliveries: 0,
+      cancelledDeliveries: 0,
+      currentActiveOrders: 0, // ✅ Agregado (línea 47)
+      maxOrdersCapacity: 5,   // ✅ Default según schema línea 43
+      totalEarnings: 0,
+      averageDeliveryTime: 0, // ✅ Agregado (línea 59)
+      completionRate: 0,      // ✅ Agregado (línea 62)
+      missedOrders: 0,        // ✅ Agregado (línea 96)
+      lateDeliveries: 0,      // ✅ Agregado (línea 99)
+      // Campos opcionales se omiten (undefined por defecto)
+      // currentLocation, vehicleTypes, vehiclePlate, bankInfo, etc.
+    };
+  }
+
+  // ==================== MÉTODOS PARA DELIVERY ====================
+
+  async updateDeliveryOnlineStatus(
+    userId: string,
+    isOnline: boolean,
+  ): Promise<User> {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.role !== UserRole.DELIVERY) {
+      throw new BadRequestException('El usuario no es un repartidor');
+    }
+
+    // Inicializar deliveryInfo si no existe
+    if (!user.deliveryInfo) {
+      user.deliveryInfo = this.initializeDeliveryInfo();
+    }
+
+    user.deliveryInfo.isOnline = isOnline;
+    
+    // Actualizar lastOnlineAt cuando se conecta
+    if (isOnline) {
+      user.deliveryInfo.lastOnlineAt = new Date();
+      // Si se conecta, cambiar a ACTIVE si no está suspendido
+      if (user.deliveryInfo.status === 'INACTIVE') {
+        user.deliveryInfo.status = 'ACTIVE';
+      }
+    } else {
+      // Si se desconecta, también marcar como no disponible
+      user.deliveryInfo.isAvailable = false;
+      user.deliveryInfo.status = 'INACTIVE';
+    }
+
+    await user.save();
+
+    return user;
+  }
+
+  async updateDeliveryAvailability(
+    userId: string,
+    isAvailable: boolean,
+  ): Promise<User> {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.role !== UserRole.DELIVERY) {
+      throw new BadRequestException('El usuario no es un repartidor');
+    }
+
+    // Inicializar deliveryInfo si no existe
+    if (!user.deliveryInfo) {
+      user.deliveryInfo = this.initializeDeliveryInfo();
+    }
+
+    // No puede estar disponible si está offline
+    if (isAvailable && !user.deliveryInfo.isOnline) {
+      throw new BadRequestException(
+        'No puedes estar disponible si estás desconectado',
+      );
+    }
+
+    user.deliveryInfo.isAvailable = isAvailable;
+
+    await user.save();
+
+    return user;
+  }
+
+  async updateDeliveryLocation(
+    userId: string,
+    location: { lat: number; lng: number },
+  ): Promise<User> {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.role !== UserRole.DELIVERY) {
+      throw new BadRequestException('El usuario no es un repartidor');
+    }
+
+    // Inicializar deliveryInfo si no existe
+    if (!user.deliveryInfo) {
+      user.deliveryInfo = this.initializeDeliveryInfo();
+    }
+
+    // Actualizar la ubicación según el schema (líneas 16-20)
+    user.deliveryInfo.currentLocation = {
+      lat: location.lat,
+      lng: location.lng,
+    };
+
+    // Actualizar timestamp de última actualización de ubicación
+    user.deliveryInfo.lastLocationUpdate = new Date();
+
+    await user.save();
+
+    return user;
+  }
+
+  async updateDeliveryStatus(
+    userId: string,
+    status: string,
+  ): Promise<User> {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.role !== UserRole.DELIVERY) {
+      throw new BadRequestException('El usuario no es un repartidor');
+    }
+
+    // Validar estados permitidos según schema (línea 87)
+    const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'ON_BREAK'];
+    if (!validStatuses.includes(status)) {
+      throw new BadRequestException(
+        `Estado inválido. Valores permitidos: ${validStatuses.join(', ')}`,
+      );
+    }
+
+    // Inicializar deliveryInfo si no existe
+    if (!user.deliveryInfo) {
+      user.deliveryInfo = this.initializeDeliveryInfo();
+    }
+
+    user.deliveryInfo.status = status;
+
+    // Sincronizar flags según el status
+    if (status === 'INACTIVE' || status === 'SUSPENDED') {
+      user.deliveryInfo.isOnline = false;
+      user.deliveryInfo.isAvailable = false;
+    } else if (status === 'ACTIVE') {
+      // Solo marcar disponible si está online
+      if (user.deliveryInfo.isOnline) {
+        user.deliveryInfo.isAvailable = true;
+      }
+    } else if (status === 'ON_BREAK') {
+      user.deliveryInfo.isAvailable = false;
+      // Mantener online pero no disponible
+    }
+
+    await user.save();
+
+    return user;
+  }
 }
