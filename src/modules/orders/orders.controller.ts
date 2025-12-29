@@ -110,7 +110,7 @@ export class OrdersController {
     return this.ordersService.getBusinessOrders(businessId, paginationDto, status);
   }
 
-  @Public()
+  
   @Get('delivery/available')
   @Roles(UserRole.DELIVERY)
   @ApiOperation({ summary: 'Pedidos disponibles para tomar (DELIVERY)' })
