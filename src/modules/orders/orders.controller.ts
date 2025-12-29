@@ -41,11 +41,12 @@ import { UserRole, OrderStatus } from '../../common/enums/common.enums';
 } from './dto/marketplace-order.dto';*/
 import { Public } from '../auth/decorators/public.decorator';
 import { OrderPaginationDto } from './dto/order-pagination.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('orders')
 @ApiBearerAuth('JWT-auth')
 @Controller('orders')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
