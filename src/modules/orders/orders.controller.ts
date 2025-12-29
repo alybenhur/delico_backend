@@ -164,7 +164,7 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, updateStatusDto, userId, userRole);
   }
 
-  @Patch(':id/assign-delivery')
+  @Patch(':id/assign-delivery-manual')
   @Roles(UserRole.BUSINESS, UserRole.ADMIN)
   @ApiOperation({ summary: 'Asignar repartidor (BUSINESS o ADMIN)' })
   @ApiResponse({ status: 200, description: 'Repartidor asignado' })
