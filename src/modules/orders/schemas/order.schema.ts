@@ -187,6 +187,22 @@ export class Order extends Document {
   @Prop({ type: { lat: Number, lng: Number, timestamp: Date } })
   currentLocation?: { lat: number; lng: number; timestamp: Date };
 
+  // ✅ NUEVO: Ubicación donde se realizó la entrega (para auditoría)
+  @Prop({
+    type: {
+      lat: Number,
+      lng: Number,
+      timestamp: Date,
+      distanceFromTarget: Number,
+    },
+  })
+  deliveredLocation?: {
+    lat: number;
+    lng: number;
+    timestamp: Date;
+    distanceFromTarget?: number; // Distancia en metros desde el punto objetivo
+  };
+
   @Prop({ default: 0 })
   distanceRemaining?: number;
 

@@ -10,6 +10,7 @@ import {
   Min,
   Max,
   ArrayMinSize,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -181,15 +182,42 @@ export class CalculateOrderDto {
 }
 
 export class UpdateOrderStatusDto {
-  @ApiProperty({ enum: OrderStatus, example: OrderStatus.CONFIRMED })
-  @IsEnum(OrderStatus)
-  @IsNotEmpty()
+   @IsEnum(OrderStatus)
+  @ApiProperty({
+    enum: OrderStatus,
+    description: 'Nuevo estado de la orden',
+    example: OrderStatus.DELIVERED,
+  })
   status: OrderStatus;
 
-  @ApiPropertyOptional({ example: 'Pedido confirmado' })
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({
+    description: 'Nota opcional sobre el cambio de estado',
+    example: 'Orden entregada en perfectas condiciones',
+  })
   note?: string;
+
+  // ✅ NUEVO: Ubicación del delivery al marcar como entregado
+  @ValidateIf((o) => o.status === OrderStatus.DELIVERED)
+  @IsNumber()
+  @ApiProperty({
+    description:
+      'Latitud del delivery al momento de marcar como entregado (requerido para DELIVERED)',
+    example: -7.123456,
+    required: false,
+  })
+  deliveryLatitude?: number;
+
+  @ValidateIf((o) => o.status === OrderStatus.DELIVERED)
+  @IsNumber()
+  @ApiProperty({
+    description:
+      'Longitud del delivery al momento de marcar como entregado (requerido para DELIVERED)',
+    example: -75.654321,
+    required: false,
+  })
+  deliveryLongitude?: number;
 }
 
 export class AssignDeliveryDto {
@@ -335,3 +363,4 @@ export class OrderResponseDto {
   @ApiProperty()
   updatedAt: Date;
 }
+

@@ -33,11 +33,15 @@ import {
   ProductStatus,
   IngredientStatus,
 } from '../../common/enums/common.enums';
-
+import {
+  calculateDistance,
+  validateDeliveryLocation,
+} from '../../common/utils/geolocation.util';
 
 
 @Injectable()
 export class OrdersService {
+  private readonly MAX_DELIVERY_DISTANCE = 5;
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
@@ -431,7 +435,7 @@ export class OrdersService {
   // src/modules/orders/orders.service.ts (PARTE 2)
 // Agregar estos métodos al final de la clase OrdersService
 
-  async updateStatus(
+ async updateStatus(
     id: string,
     updateStatusDto: UpdateOrderStatusDto,
     userId: string,
@@ -453,7 +457,76 @@ export class OrdersService {
         order.delivery?.toString() === userId.toString());
 
     if (!canUpdate) {
-      throw new ForbiddenException('No tienes permisos para actualizar esta orden');
+      throw new ForbiddenException(
+        'No tienes permisos para actualizar esta orden',
+      );
+    }
+
+    // ✅ NUEVA VALIDACIÓN: Si se marca como DELIVERED, validar ubicación
+    if (updateStatusDto.status === OrderStatus.DELIVERED) {
+      console.log('🔍 Validando ubicación para marcar como entregado...');
+
+      // 1. Validar que se envió la ubicación del delivery
+      if (
+        !updateStatusDto.deliveryLatitude ||
+        !updateStatusDto.deliveryLongitude
+      ) {
+        throw new BadRequestException(
+          'Se requiere la ubicación del delivery para marcar como entregado',
+        );
+      }
+
+      console.log(
+        `📍 Ubicación del delivery: ${updateStatusDto.deliveryLatitude}, ${updateStatusDto.deliveryLongitude}`,
+      );
+
+      // 2. Validar que la orden tenga coordenadas de entrega
+      if (
+        !order.deliveryAddress?.coordinates?.lat ||
+        !order.deliveryAddress?.coordinates?.lng
+      ) {
+        throw new BadRequestException(
+          'La orden no tiene coordenadas de entrega configuradas. ' +
+            'No es posible validar la ubicación.',
+        );
+      }
+
+      console.log(
+        `🎯 Ubicación de destino: ${order.deliveryAddress.coordinates.lat}, ${order.deliveryAddress.coordinates.lng}`,
+      );
+
+      // 3. Validar proximidad (máximo 5 metros)
+      const { isValid, distance } = validateDeliveryLocation(
+        updateStatusDto.deliveryLatitude,
+        updateStatusDto.deliveryLongitude,
+        order.deliveryAddress.coordinates.lat,
+        order.deliveryAddress.coordinates.lng,
+        this.MAX_DELIVERY_DISTANCE,
+      );
+
+      console.log(`📏 Distancia calculada: ${distance}m`);
+      console.log(`✅ Dentro del rango (${this.MAX_DELIVERY_DISTANCE}m): ${isValid}`);
+
+      if (!isValid) {
+        throw new BadRequestException(
+          `Debes estar cerca de la dirección de entrega para marcar como entregado. ` +
+            `Distancia actual: ${distance}m (máximo permitido: ${this.MAX_DELIVERY_DISTANCE}m). ` +
+            `Por favor, acércate más a la dirección de entrega.`,
+        );
+      }
+
+      // 4. ✅ Guardar ubicación de entrega para auditoría
+      order.deliveredLocation = {
+        lat: updateStatusDto.deliveryLatitude,
+        lng: updateStatusDto.deliveryLongitude,
+        timestamp: new Date(),
+        distanceFromTarget: distance,
+      };
+
+      console.log('✅ Ubicación de entrega guardada para auditoría');
+
+      // 5. Establecer fecha de entrega
+      order.deliveredAt = new Date();
     }
 
     // Validar transiciones de estado
@@ -462,38 +535,39 @@ export class OrdersService {
     // Actualizar estado
     order.status = updateStatusDto.status;
 
-    // Actualizar timestamps según el estado
-    const now = new Date();
-    switch (updateStatusDto.status) {
-      case OrderStatus.CONFIRMED:
-        order.confirmedAt = now;
-        break;
-      case OrderStatus.PREPARING:
-        order.preparingAt = now;
-        break;
-      case OrderStatus.READY:
-        order.readyAt = now;
-        break;
-      case OrderStatus.PICKUP:
-        order.pickedUpAt = now;
-        break;
-      case OrderStatus.DELIVERED:
-        order.deliveredAt = now;
-        order.paymentStatus = PaymentStatus.PAID;
-        break;
-    }
-
     // Agregar al historial
     order.statusHistory.push({
       status: updateStatusDto.status,
-      timestamp: now,
+      timestamp: new Date(),
       updatedBy: new Types.ObjectId(userId),
-      note: updateStatusDto.note,
+      note: updateStatusDto.note || '',
     } as any);
 
-    return order.save();
+    // Actualizar timestamps según el estado
+    switch (updateStatusDto.status) {
+      case OrderStatus.CONFIRMED:
+        order.confirmedAt = new Date();
+        break;
+      case OrderStatus.PREPARING:
+        order.preparingAt = new Date();
+        break;
+      case OrderStatus.READY:
+        order.readyAt = new Date();
+        break;
+      case OrderStatus.PICKUP:
+        order.pickedUpAt = new Date();
+        break;
+      // DELIVERED ya se maneja arriba
+    }
+
+    await order.save();
+
+    console.log(`✅ Orden ${order.orderNumber} actualizada a estado ${updateStatusDto.status}`);
+
+    return order;
   }
 
+  
  private validateStatusTransition(
   currentStatus: OrderStatus,
   newStatus: OrderStatus,
