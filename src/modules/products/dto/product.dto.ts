@@ -100,10 +100,13 @@ export class CreateProductDto {
   @Min(0)
   quantity?: number;
 
-  @ApiProperty({ example: 'https://example.com/product.png' })
+ @ApiPropertyOptional({ 
+    example: 'https://res.cloudinary.com/demo/image/upload/v1234567890/delico/products/abc123.jpg',
+    description: 'URL de la imagen del producto (subida previamente via /upload/product-image)'
+  })
+  @IsOptional() // ✅ Cambió de @IsNotEmpty() a @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  image: string;
+  image?: string; // ✅ Cambió de 'image: string' a 'image?: string'
 
   @ApiPropertyOptional({
     example: ['https://example.com/img1.png', 'https://example.com/img2.png'],

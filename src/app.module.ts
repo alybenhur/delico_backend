@@ -15,6 +15,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 
     // Módulo de Pagos
     PaymentsModule,
+     UploadModule,
 
     // 🎉 ¡Sistema completo implementado!
   ],
