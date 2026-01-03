@@ -19,7 +19,7 @@ export class PromotionsScheduler {
    * Zona horaria: America/Bogota
    * Frecuencia: Cada hora (0 * * * *)
    */
-  @Cron(CronExpression.EVERY_HOUR, {
+  @Cron(CronExpression.EVERY_MINUTE, {
     name: 'update-promotions',
     timeZone: 'America/Bogota',
   })
