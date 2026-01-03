@@ -9,6 +9,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,13 +33,16 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { UserRole, PromotionStatus } from '../../common/enums/common.enums';
+import { PromotionsScheduler } from './promotions.scheduler';
 
 @ApiTags('promotions')
 @ApiBearerAuth('JWT-auth')
 @Controller('promotions')
 @UseGuards(RolesGuard)
 export class PromotionsController {
-  constructor(private readonly promotionsService: PromotionsService) {}
+  constructor(private readonly promotionsService: PromotionsService,
+     private readonly promotionsScheduler: PromotionsScheduler,
+  ) {}
 
   @Post()
   @Roles(UserRole.BUSINESS, UserRole.ADMIN)
@@ -228,4 +232,75 @@ findAll(
   ) {
     return this.promotionsService.remove(id, userId, userRole);
   }
+
+
+  /**
+ * Endpoint para ejecutar manualmente la actualización de promociones
+ * Solo accesible por administradores
+ * 
+ * POST /promotions/admin/update-statuses
+ * 
+ * Respuesta:
+ * {
+ *   "success": true,
+ *   "expired": 3,
+ *   "activated": 2,
+ *   "duration": 150,
+ *   "timestamp": "2026-01-02T10:00:00.000Z"
+ * }
+ */
+@Post('admin/update-statuses')
+@Roles(UserRole.ADMIN)
+@HttpCode(200)
+async updatePromotionStatuses() {
+  return this.promotionsScheduler.executeManualUpdate();
+}
+
+/**
+ * Endpoint para expirar manualmente promociones vencidas
+ * Solo accesible por administradores
+ * 
+ * POST /promotions/admin/expire
+ * 
+ * Respuesta:
+ * {
+ *   "modifiedCount": 5,
+ *   "message": "5 promociones expiradas"
+ * }
+ */
+@Post('admin/expire')
+@Roles(UserRole.ADMIN)
+@HttpCode(200)
+async expirePromotions() {
+  const result = await this.promotionsService.updateExpiredPromotions();
+  
+  return {
+    modifiedCount: result.modifiedCount,
+    message: `${result.modifiedCount} promoción(es) expirada(s)`,
+  };
+}
+
+/**
+ * Endpoint para activar manualmente promociones programadas
+ * Solo accesible por administradores
+ * 
+ * POST /promotions/admin/activate-scheduled
+ * 
+ * Respuesta:
+ * {
+ *   "modifiedCount": 3,
+ *   "message": "3 promociones activadas"
+ * }
+ */
+@Post('admin/activate-scheduled')
+@Roles(UserRole.ADMIN)
+@HttpCode(200)
+async activateScheduledPromotions() {
+  const result = await this.promotionsService.activateScheduledPromotions();
+  
+  return {
+    modifiedCount: result.modifiedCount,
+    message: `${result.modifiedCount} promoción(es) activada(s)`,
+  };
+}
 }
