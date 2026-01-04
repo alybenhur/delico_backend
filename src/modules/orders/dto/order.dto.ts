@@ -260,36 +260,89 @@ export class RateOrderDto {
 
 // ==================== Response DTOs ====================
 
+// ==================== Response DTOs (ACTUALIZADO) ====================
+
 export class OrderCalculationResponseDto {
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'ID del negocio',
+    example: '507f1f77bcf86cd799439011' 
+  })
   business: string;
 
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'Items de la orden con precios calculados',
+    type: 'array',
+    example: [{
+      product: '507f1f77bcf86cd799439011',
+      productName: 'Pizza napolitana',
+      productPrice: 17600,        // ✅ Precio CON descuento
+      originalPrice: 22000,       // ✅ NUEVO: Precio original
+      promotionId: '507f...',     // ✅ NUEVO: ID de promoción aplicada
+      discountAmount: 4400,       // ✅ NUEVO: Descuento unitario
+      totalSavings: 4400,         // ✅ NUEVO: Ahorro total del item
+      quantity: 1,
+      subtotal: 17600,
+      customizationCost: 0,
+      itemTotal: 17600
+    }]
+  })
   items: any[];
 
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'Subtotal de la orden (ya incluye descuentos de productos)',
+    example: 17600 
+  })
   subtotal: number;
 
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'Total ahorrado en promociones de productos',
+    example: 4400 
+  })
+  totalPromotionSavings: number;  // ✅ NUEVO
+
+  @ApiProperty({ 
+    description: 'Costo de envío',
+    example: 5000 
+  })
   deliveryFee: number;
 
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'Descuento adicional por código promocional',
+    example: 0 
+  })
   discount: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Información de promoción por código aplicada',
+    example: {
+      id: '507f1f77bcf86cd799439011',
+      name: 'DESCUENTO10',
+      discount: 1000
+    }
+  })
   promotionApplied?: {
     id: string;
     name: string;
     discount: number;
   };
 
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'Total final a pagar',
+    example: 22600 
+  })
   total: number;
 
-  @ApiProperty()
+  @ApiProperty({ 
+    description: 'Indica si el cálculo es válido',
+    example: true 
+  })
   isValid: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Advertencias o errores no críticos',
+    type: [String],
+    example: ['Algunos productos no disponibles']
+  })
   warnings?: string[];
 }
 

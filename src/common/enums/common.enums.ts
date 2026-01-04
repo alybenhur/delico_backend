@@ -54,6 +54,7 @@ export enum BusinessStatus {
 export enum PromotionType {
   PERCENTAGE = 'PERCENTAGE',
   FIXED_AMOUNT = 'FIXED_AMOUNT',
+  BUY_X_GET_Y = 'BUY_X_GET_Y'
 }
 
 export enum PromotionStatus {

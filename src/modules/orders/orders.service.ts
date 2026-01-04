@@ -162,7 +162,7 @@ export class OrdersService {
     return savedOrder;
   }
 
-  async calculateOrder(
+     async calculateOrder(
     calculateOrderDto: CalculateOrderDto,
   ): Promise<OrderCalculationResponseDto> {
     const warnings: string[] = [];
@@ -191,8 +191,27 @@ export class OrdersService {
         continue;
       }
 
-      // Calcular precio base
-      let itemSubtotal = product.basePrice * item.quantity;
+      // ✅ CORREGIDO: Usar product.id (virtual getter de Mongoose)
+      const activePromotions = await this.getActivePromotionsForProduct(
+        product.id,
+      );
+      
+      // ✅ Obtener mejor promoción
+      const bestPromotion = this.getBestPromotion(activePromotions, product.basePrice);
+      
+      // ✅ CORREGIDO: Usar tipo string para promotionId
+      let finalPrice = product.basePrice;
+      let discountAmount = 0;
+      let appliedPromotionId: string | undefined = undefined;
+      
+      if (bestPromotion) {
+        discountAmount = this.calculatePromotionDiscount(bestPromotion, product.basePrice);
+        finalPrice = product.basePrice - discountAmount;
+        appliedPromotionId = bestPromotion.id;  // ✅ CORREGIDO: Usar .id (string)
+      }
+
+      // ✅ Calcular precio base con descuento aplicado
+      let itemSubtotal = finalPrice * item.quantity;
       let customizationCost = 0;
 
       // Procesar customización si existe
@@ -269,17 +288,24 @@ export class OrdersService {
       const itemTotal = itemSubtotal + customizationCost;
       subtotal += itemTotal;
 
+      // ✅ Calcular ahorro total en este item
+      const totalSavings = discountAmount * item.quantity;
+
       processedItems.push({
-        product: product._id,
+        product: product.id,                   // ✅ CORREGIDO: Usar product.id (string)
         productName: product.name,
-        productPrice: product.basePrice,
+        productPrice: finalPrice,              // ✅ Precio CON descuento
+        originalPrice: product.basePrice,      // ✅ Precio original
+        promotionId: appliedPromotionId,       // ✅ CORREGIDO: string | undefined
+        discountAmount: discountAmount,        // ✅ Descuento unitario
+        totalSavings: totalSavings,            // ✅ Ahorro total del item
         quantity: item.quantity,
         customization:
           Object.keys(customization.removedIngredients).length > 0 ||
           Object.keys(customization.addedIngredients).length > 0
             ? customization
             : undefined,
-        subtotal: itemSubtotal,
+        subtotal: itemSubtotal,                // ✅ Ya incluye descuento
         customizationCost,
         itemTotal,
         notes: item.notes,
@@ -289,7 +315,13 @@ export class OrdersService {
     // 3. Calcular delivery fee
     const deliveryFee = business.deliveryFee || 0;
 
-    // 4. Aplicar promoción si existe
+    // ✅ Calcular total de ahorros por promociones de productos
+    const totalPromotionSavings = processedItems.reduce(
+      (sum, item) => sum + (item.totalSavings || 0),
+      0,
+    );
+
+    // 4. Aplicar promoción por código si existe (adicional a las automáticas)
     let discount = 0;
     let promotionApplied: any = undefined;
 
@@ -335,19 +367,27 @@ export class OrdersService {
     // 5. Calcular total
     const total = subtotal + deliveryFee - discount;
 
+    console.log('\n✅ CÁLCULO DE ORDEN CON PROMOCIONES:');
+    console.log('   Items procesados:', processedItems.length);
+    console.log('   Subtotal (con descuentos):', subtotal);
+    console.log('   Total ahorrado en productos:', totalPromotionSavings);
+    console.log('   Delivery fee:', deliveryFee);
+    console.log('   Descuento adicional (código):', discount);
+    console.log('   Total final:', total);
+
     return {
       business: calculateOrderDto.business,
       items: processedItems,
-      subtotal,
+      subtotal,                        // ✅ Ya incluye descuentos de productos
+      totalPromotionSavings,           // ✅ Total ahorrado en productos
       deliveryFee,
-      discount,
-      promotionApplied,
+      discount,                        // Descuento por código promocional (si hay)
+      promotionApplied,                // Promoción por código (si hay)
       total,
       isValid: warnings.length === 0,
       warnings: warnings.length > 0 ? warnings : undefined,
     };
   }
-
   async findAll(
     paginationDto: PaginationDto,
     filters?: {
@@ -877,6 +917,59 @@ async assignDeliveryToOrder(
   
   return populatedOrder; 
 }
+
+ /**
+   * Busca promociones activas para un producto específico
+   */
+  private async getActivePromotionsForProduct(
+    productId: string,
+  ): Promise<Promotion[]> {
+    const now = new Date();
+    
+    return this.promotionModel.find({
+      products: new Types.ObjectId(productId),
+      status: 'ACTIVE',
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    });
+  }
+
+  /**
+   * Obtiene la mejor promoción (mayor descuento) de una lista
+   */
+  private getBestPromotion(
+    promotions: Promotion[],
+    productPrice: number,
+  ): Promotion | null {
+    if (!promotions || promotions.length === 0) return null;
+    
+    return promotions.reduce((best, current) => {
+      const bestDiscount = this.calculatePromotionDiscount(best, productPrice);
+      const currentDiscount = this.calculatePromotionDiscount(current, productPrice);
+      return currentDiscount > bestDiscount ? current : best;
+    });
+  }
+
+  /**
+   * Calcula el monto del descuento de una promoción
+   */
+  private calculatePromotionDiscount(
+    promotion: Promotion,
+    productPrice: number,
+  ): number {
+    switch (promotion.type) {
+      case 'PERCENTAGE':
+        return productPrice * (promotion.value / 100);
+      case 'FIXED_AMOUNT':
+        return Math.min(promotion.value, productPrice);
+      case 'BUY_X_GET_Y':
+        return 0; // Este tipo se calcula diferente (por cantidad)
+      default:
+        return 0;
+    }
+  }
+
+
   // ==================== MÉTODOS MARKETPLACE ====================
 
 // ==================== MÉTODOS MARKETPLACE ====================
